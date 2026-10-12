@@ -97,7 +97,7 @@ exports.leggiVerbale = onRequest(
           model: MODEL,
           max_tokens: 1024,
           tools: [tool],
-          tool_choice: { type: 'tool', name: 'registra_verbale' },
+          tool_choice: { type: 'auto' },
           messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: PROMPT }] }]
         })
       });
