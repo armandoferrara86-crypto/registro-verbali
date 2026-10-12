@@ -29,8 +29,36 @@ firebase functions:secrets:set ANTHROPIC_API_KEY
 firebase deploy
 ```
 
-Al termine la pagina è su **https://verbali-d707e.web.app** — è questo
-l'indirizzo da dare ai colleghi.
+## Indirizzi
+
+- **Pagina (da dare ai colleghi):** https://armandoferrara86-crypto.github.io/registro-verbali/
+- **Pagina di riserva (Firebase Hosting):** https://verbali-d707e.web.app
+- **Funzione di lettura:** https://europe-west1-verbali-d707e.cloudfunctions.net/leggiVerbale
+- **Codice:** https://github.com/armandoferrara86-crypto/registro-verbali
+
+Il progetto Firebase `verbali-d707e` appartiene all'account `armandoferrara86@gmail.com`:
+è con questo che va fatto `firebase login`.
+
+## Ripetere il deploy dopo una modifica
+
+| Cosa hai modificato | Comando |
+|---|---|
+| `public/index.html` | `git add -A && git commit -m "..." && git push` (GitHub Pages si aggiorna da solo in circa un minuto), poi `firebase deploy --only hosting` per la pagina di riserva |
+| `functions/index.js` | `firebase deploy --only functions`, poi commit e push |
+| `firestore.rules` | `firebase deploy --only firestore:rules`, poi commit e push |
+| La chiave API | `firebase functions:secrets:set ANTHROPIC_API_KEY`, poi `firebase deploy --only functions` |
+
+La chiave deve essere legata a un workspace (creata da platform.claude.com dentro
+un workspace, es. "Default"): con una chiave non legata a un workspace la scansione
+risponde "Servizio di lettura non disponibile (400)".
+
+Per vedere gli errori della funzione: `firebase functions:log --only leggiVerbale`.
+
+## Regole Firestore
+
+`firestore.rules` consente lettura e scrittura solo su `elenco_verbali` e nega
+tutto il resto. Non c'è login: chi conosce l'indirizzo può leggere e modificare
+il registro.
 
 ## Se pubblichi la pagina altrove (GitHub Pages, Netlify…)
 
