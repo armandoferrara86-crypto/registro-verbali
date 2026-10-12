@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Registro Verbali: unica collection usata dalla pagina
+    match /elenco_verbali/{verbale} {
+      allow read, write: if true;
+    }
+    // Tutto il resto è negato
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
