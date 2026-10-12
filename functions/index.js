@@ -14,7 +14,7 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const ALLOWED_ORIGINS = [
   'https://verbali-d707e.web.app',
   'https://verbali-d707e.firebaseapp.com',
-  // 'https://tuonome.github.io',
+  'https://armandoferrara86-crypto.github.io',
 ];
 
 const MODEL = 'claude-sonnet-5-5';
