@@ -762,6 +762,9 @@ const verbaliRef = db.collection(COLLECTION);
    Indirizzo della Cloud Function "leggiVerbale" (lo trovi dopo il deploy:
    firebase deploy --only functions  →  Function URL). */
 const OCR_ENDPOINT = 'https://europe-west1-verbali-d707e.cloudfunctions.net/leggiVerbale';
+// Archivio su Google Drive: la scansione viene inviata al salvataggio del verbale
+const ARCHIVIO_ENDPOINT = 'https://europe-west1-verbali-d707e.cloudfunctions.net/archiviaVerbale';
+let pendingScan = null;
 const SCAN_FIELDS = { tipo:'fTipo', denom:'fDenom', sede:'fSede', verbale:'fVerbale', data:'fData', norme:'fNorme', note:'fNote' };
 const SCAN_LABELS = { tipo:'Tipologia', denom:'Denominazione', sede:'Sede', verbale:'Verbale N.', data:'Data', norme:'Norme', note:'Note' };
 
@@ -823,6 +826,7 @@ async function scanVerbale(input) {
     if (!isPdf) dataURL = await shrinkImage(dataURL);
     const mediaType = isPdf ? 'application/pdf' : 'image/jpeg';
     const base64 = dataURL.split(',')[1];
+    pendingScan = { mediaType, data: base64 };
 
     // Anteprima
     if (isPdf) { thumb.style.display = 'none'; }
@@ -1163,7 +1167,7 @@ function setFormData(r) {
   document.getElementById('fNote').value = r.note||'';
 }
 function resetForm() {
-  setFormData({}); editingId = null;
+  setFormData({}); editingId = null; pendingScan = null;
   document.getElementById('formTitle').textContent = 'Nuovo Verbale';
   document.getElementById('btnSave').innerHTML = '\uFF0B Aggiungi Verbale';
   document.getElementById('btnCancel').style.display = 'none';
@@ -1187,8 +1191,27 @@ async function saveRecord() {
       await verbaliRef.add(d);
       toast('Verbale aggiunto \u2713','success');
     }
+    const scan = pendingScan;
     resetForm();
+    if (scan) archiviaScansione(scan, d);
   } catch(e) { toast('Errore: '+e.message, 'error'); }
+}
+
+// Invia la scansione all'archivio Drive; il verbale è già salvato nel registro
+async function archiviaScansione(scan, d) {
+  const nome = [d.verbale, d.denom, d.data].filter(Boolean).join(' - ');
+  try {
+    const resp = await fetch(ARCHIVIO_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...scan, nome })
+    });
+    const out = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(out.error || ('Errore server ' + resp.status));
+    toast('Scansione salvata su Drive \u2713', 'success');
+  } catch (e) {
+    toast('Verbale salvato, ma la scansione non è andata su Drive: ' + e.message, 'error');
+  }
 }
 
 function editRecord(id) {

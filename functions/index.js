@@ -119,3 +119,47 @@ exports.leggiVerbale = onRequest(
     }
   }
 );
+
+/**
+ * archiviaVerbale — salva la scansione su Google Drive tramite l'Apps Script
+ * in apps-script/Codice.gs. Indirizzo e codice segreto dello script stanno
+ * nei segreti ARCHIVIO_URL e ARCHIVIO_TOKEN.
+ */
+const ARCHIVIO_URL = defineSecret('ARCHIVIO_URL');
+const ARCHIVIO_TOKEN = defineSecret('ARCHIVIO_TOKEN');
+
+exports.archiviaVerbale = onRequest(
+  { region: 'europe-west1', secrets: [ARCHIVIO_URL, ARCHIVIO_TOKEN], timeoutSeconds: 120, memory: '512MiB', maxInstances: 5 },
+  async (req, res) => {
+    const allowed = corsHeaders(req, res);
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (!allowed) return res.status(403).json({ error: 'Origine non autorizzata' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non consentito' });
+
+    try {
+      const { mediaType, data, nome } = req.body || {};
+      const okTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      if (!okTypes.includes(mediaType) || typeof data !== 'string' || !data) {
+        return res.status(400).json({ error: 'File mancante o formato non supportato' });
+      }
+      if (data.length > 20 * 1024 * 1024) {
+        return res.status(413).json({ error: 'File troppo grande' });
+      }
+
+      const r = await fetch(ARCHIVIO_URL.value(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: ARCHIVIO_TOKEN.value(), mediaType, data, nome: typeof nome === 'string' ? nome : '' })
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok || !out.ok) {
+        console.error('Archivio Drive', r.status, JSON.stringify(out));
+        return res.status(502).json({ error: 'Archivio Drive non disponibile' });
+      }
+      return res.json({ nome: out.nome });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: 'Errore interno: ' + e.message });
+    }
+  }
+);
