@@ -34,6 +34,7 @@ firebase deploy
 - **Pagina (da dare ai colleghi):** https://armandoferrara86-crypto.github.io/registro-verbali/
 - **Pagina di riserva (Firebase Hosting):** https://verbali-d707e.web.app
 - **Funzione di lettura:** https://europe-west1-verbali-d707e.cloudfunctions.net/leggiVerbale
+- **Funzione di archivio su Drive:** https://europe-west1-verbali-d707e.cloudfunctions.net/archiviaVerbale
 - **Codice:** https://github.com/armandoferrara86-crypto/registro-verbali
 
 Il progetto Firebase `verbali-d707e` appartiene all'account `armandoferrara86@gmail.com`:
@@ -53,6 +54,24 @@ un workspace, es. "Default"): con una chiave non legata a un workspace la scansi
 risponde "Servizio di lettura non disponibile (400)".
 
 Per vedere gli errori della funzione: `firebase functions:log --only leggiVerbale`.
+
+## Archivio delle scansioni su Google Drive
+
+Quando si salva un verbale appena scansionato, il file viene copiato nella cartella
+**"Verbali da lavorare"** del Drive dell'account che ha creato l'Apps Script
+(progetto "ARCHIVIO VERBALI" su script.google.com, codice in `apps-script/Codice.gs`).
+Nome del file: `NUMERO VERBALE - DENOMINAZIONE - DATA`. I PDF restano originali,
+le foto arrivano ridotte a 2000 px. Se l'invio fallisce il verbale resta comunque
+salvato nel registro.
+
+Il collegamento usa due segreti Firebase:
+- `ARCHIVIO_URL`: indirizzo `/exec` dell'app web dello script;
+- `ARCHIVIO_TOKEN`: codice segreto, uguale alla proprietà `TOKEN` dello script.
+
+Se si modifica lo script: Esegui il deployment → Gestisci deployment → ✏️ →
+Versione "Nuova versione" (così l'indirizzo resta lo stesso).
+Se cambia l'indirizzo: `firebase functions:secrets:set ARCHIVIO_URL`, poi
+`firebase deploy --only functions`.
 
 ## Regole Firestore
 
