@@ -1,25 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Registro Verbali: dalla pagina si possono SOLO aggiungere verbali.
-    // Lettura, modifica e cancellazione sono chiuse finché non c'è il login
-    // con Google; il registro si consulta dalla console Firebase.
+
+    // Account Google autorizzati: per aggiungere un collega metti qui la sua
+    // email (tutto minuscolo) e ripubblica le regole.
+    function autorizzato() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+             'polammslorenzo@gmail.com'
+           ];
+    }
+
+    // Registro Verbali: unica collection usata dalla pagina, solo per gli autorizzati
     match /elenco_verbali/{verbale} {
-      allow create: if verbaleValido(request.resource.data);
-      allow read, update, delete: if false;
+      allow read, delete: if autorizzato();
+      allow create: if autorizzato()
+        && request.resource.data.keys().hasOnly(CAMPI().concat(['createdAt']))
+        && request.resource.data.createdAt == request.time
+        && valori(request.resource.data);
+      allow update: if autorizzato()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(CAMPI())
+        && valori(request.resource.data);
     }
     // Tutto il resto è negato
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Solo i campi del registro, solo testo di lunghezza ragionevole,
-    // data AAAA-MM-GG (o vuota) e createdAt messo dal server.
-    function verbaleValido(d) {
-      return d.keys().hasOnly(['tipo','denom','sede','verbale','data','norme','note','createdAt'])
-        && d.keys().hasAll(['denom','verbale','createdAt'])
-        && d.createdAt == request.time
-        && testo(d, 'tipo', 60)
+    function CAMPI() {
+      return ['tipo','denom','sede','verbale','data','norme','note'];
+    }
+    // Solo testo di lunghezza ragionevole, denominazione e numero obbligatori,
+    // data AAAA-MM-GG o vuota
+    function valori(d) {
+      return testo(d, 'tipo', 60)
         && testo(d, 'denom', 300) && d.denom.size() > 0
         && testo(d, 'sede', 300)
         && testo(d, 'verbale', 60) && d.verbale.size() > 0

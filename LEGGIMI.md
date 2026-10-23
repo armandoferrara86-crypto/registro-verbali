@@ -73,18 +73,28 @@ Versione "Nuova versione" (così l'indirizzo resta lo stesso).
 Se cambia l'indirizzo: `firebase functions:secrets:set ARCHIVIO_URL`, poi
 `firebase deploy --only functions`.
 
+## Accesso con Google
+
+La pagina chiede di entrare con un account Google. Possono usarla solo gli account
+nell'elenco degli autorizzati, che sta in **due posti** da tenere uguali:
+
+- `firestore.rules`, funzione `autorizzato()`: lettura, aggiunta, modifica e
+  cancellazione dei verbali;
+- `functions/index.js`, lista `AUTORIZZATI`: lettura automatica e archivio su Drive.
+
+Per aggiungere un collega: metti la sua email (tutto minuscolo) in entrambe le liste,
+poi `firebase deploy --only firestore:rules,functions` (oppure incolla le regole
+dalla console Firebase → Firestore Database → Regole → Pubblica; le funzioni
+richiedono comunque il deploy).
+
+In console Firebase → Authentication devono essere attivi il provider **Google** e,
+tra i domini autorizzati, `armandoferrara86-crypto.github.io`.
+
 ## Regole Firestore
 
-`firestore.rules` mette il registro in **sola scrittura**: dalla pagina si possono
-solo aggiungere verbali (anche con l'import CSV in modalità "aggiungi"), con i soli
-campi del registro, testi di lunghezza limitata e data AAAA-MM-GG. Lettura,
-modifica e cancellazione sono chiuse a tutti; tutto il resto è negato.
-
-Non c'è ancora login, quindi le regole non distinguono un collega da un estraneo:
-per questo il registro non si legge dalla pagina. Si consulta dalla console Firebase
-(Firestore Database → `elenco_verbali`), che non passa dalle regole.
-Quando ci sarà il login con Google le regole torneranno ad aprire lettura e modifica
-solo agli account autorizzati.
+`firestore.rules` apre `elenco_verbali` solo agli account autorizzati e nega tutto il
+resto. Si accettano solo i campi del registro, testi di lunghezza limitata, data
+AAAA-MM-GG (o vuota) e `createdAt` messo dal server, che non si può modificare.
 
 ## Se pubblichi la pagina altrove (GitHub Pages, Netlify…)
 

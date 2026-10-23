@@ -548,6 +548,7 @@
       <button class="btn btn-success" onclick="document.getElementById('csvFileInput').click()" title="Importa da CSV">📂 Importa CSV</button>
       <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
       <button class="btn btn-ghost" onclick="window.print()" title="Stampa">🖨️ Stampa</button>
+      <button class="btn btn-ghost" id="btnEsci" onclick="esci()" title="Esci" style="display:none">🚪 Esci</button>
     </div>
   </div>
 </div>
@@ -737,12 +738,22 @@
   </div>
 </div>
 
+<!-- ACCESSO -->
+<div class="modal-overlay open" id="loginModal">
+  <div class="modal" style="width:420px;text-align:center">
+    <div class="modal-title">🔒 Elenco Verbali — accesso riservato</div>
+    <div class="modal-sub" id="loginMsg">Entra con l'account Google autorizzato.</div>
+    <button class="btn btn-primary" id="btnAccedi" onclick="accedi()" style="margin:0 auto">Accedi con Google</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <script>
 /* ═══════════ FIREBASE INIT ═══════════ */
@@ -757,6 +768,22 @@ firebase.initializeApp({
 const db = firebase.firestore();
 const COLLECTION = 'elenco_verbali';
 const verbaliRef = db.collection(COLLECTION);
+const auth = firebase.auth();
+
+/* ═══════════ ACCESSO CON GOOGLE ═══════════
+   Chi è autorizzato lo decidono le regole Firestore (firestore.rules)
+   e le funzioni (functions/index.js), non la pagina. */
+function accedi() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  auth.signInWithPopup(provider).catch(function(e) {
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    document.getElementById('loginMsg').textContent = 'Accesso non riuscito: ' + e.message;
+  });
+}
+function esci() { auth.signOut(); }
+// Token da allegare alle chiamate di lettura e archivio
+async function idToken() { return auth.currentUser ? auth.currentUser.getIdToken() : ''; }
 
 /* ═══════════ SCANSIONE AI ═══════════
    Indirizzo della Cloud Function "leggiVerbale" (lo trovi dopo il deploy:
@@ -838,7 +865,7 @@ async function scanVerbale(input) {
     const resp = await fetch(OCR_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mediaType, data: base64, tipologie })
+      body: JSON.stringify({ mediaType, data: base64, tipologie, idToken: await idToken() })
     });
     const out = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(out.error || ('Errore server ' + resp.status));
@@ -1204,7 +1231,7 @@ async function archiviaScansione(scan, d) {
     const resp = await fetch(ARCHIVIO_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...scan, nome })
+      body: JSON.stringify({ ...scan, nome, idToken: await idToken() })
     });
     const out = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(out.error || ('Errore server ' + resp.status));
@@ -1412,7 +1439,23 @@ function toast(msg, type) {
 }
 
 /* ═══════════ FIRESTORE REALTIME LISTENER ═══════════ */
-verbaliRef.orderBy('createdAt','asc').onSnapshot(function(snapshot) {
+let stopListener = null;
+auth.onAuthStateChanged(function(user) {
+  if (stopListener) { stopListener(); stopListener = null; }
+  document.getElementById('btnEsci').style.display = user ? '' : 'none';
+  document.getElementById('loginModal').classList.toggle('open', !user);
+  if (!user) {
+    records = []; renderTable(); isLoading = true;
+    document.getElementById('syncStatus').innerHTML = '\uD83D\uDD12 Accesso richiesto';
+    document.getElementById('syncStatus').style.color = '#d29922';
+    return;
+  }
+  document.getElementById('syncStatus').innerHTML = '\u23F3 Connessione\u2026';
+  stopListener = avviaListener(user);
+});
+
+function avviaListener(user) {
+return verbaliRef.orderBy('createdAt','asc').onSnapshot(function(snapshot) {
   records = snapshot.docs.map(function(doc) { return Object.assign({ _id: doc.id }, doc.data()); });
   populateFilterOptions();
   renderTable();
@@ -1424,17 +1467,18 @@ verbaliRef.orderBy('createdAt','asc').onSnapshot(function(snapshot) {
     else toast('\uD83D\uDD04 '+records.length+' verbali caricati da Firestore', 'success');
   }
 }, function(err) {
-  // Regole in sola scrittura: il registro non si legge ma i verbali si aggiungono
+  // Account non presente nell'elenco degli autorizzati
   if (err.code === 'permission-denied') {
-    isLoading = false;
-    document.getElementById('syncStatus').innerHTML = '\uD83D\uDD12 Registro riservato \u2014 si possono solo aggiungere verbali';
-    document.getElementById('syncStatus').style.color = '#d29922';
+    toast('L\'account '+esc(user.email)+' non \u00E8 autorizzato', 'error');
+    auth.signOut();
+    document.getElementById('loginMsg').innerHTML = 'L\'account <b>'+esc(user.email)+'</b> non \u00E8 autorizzato.<br>Entra con un altro account.';
     return;
   }
   document.getElementById('syncStatus').innerHTML = '\uD83D\uDD34 Offline';
   document.getElementById('syncStatus').style.color = '#f85149';
   toast('Errore Firestore: '+err.message, 'error');
 });
+}
 
 document.getElementById('fData').valueAsDate = new Date();
 </script>

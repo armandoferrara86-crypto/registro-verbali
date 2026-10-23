@@ -7,6 +7,27 @@
  */
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+
+initializeApp();
+
+// Account Google autorizzati: stesso elenco di firestore.rules (tutto minuscolo)
+const AUTORIZZATI = [
+  'polammslorenzo@gmail.com',
+];
+
+// Verifica il login Google inviato dalla pagina (campo idToken nel corpo)
+async function accessoValido(req) {
+  const token = (req.body || {}).idToken;
+  if (typeof token !== 'string' || !token) return false;
+  try {
+    const u = await getAuth().verifyIdToken(token);
+    return u.email_verified === true && AUTORIZZATI.includes(String(u.email || '').toLowerCase());
+  } catch (e) {
+    return false;
+  }
+}
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
@@ -50,6 +71,7 @@ exports.leggiVerbale = onRequest(
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (!allowed) return res.status(403).json({ error: 'Origine non autorizzata' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non consentito' });
+    if (!(await accessoValido(req))) return res.status(401).json({ error: 'Accesso non autorizzato: entra con un account abilitato' });
 
     try {
       const { mediaType, data, tipologie } = req.body || {};
@@ -135,6 +157,7 @@ exports.archiviaVerbale = onRequest(
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (!allowed) return res.status(403).json({ error: 'Origine non autorizzata' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non consentito' });
+    if (!(await accessoValido(req))) return res.status(401).json({ error: 'Accesso non autorizzato: entra con un account abilitato' });
 
     try {
       const { mediaType, data, nome } = req.body || {};
