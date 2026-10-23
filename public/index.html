@@ -1424,6 +1424,13 @@ verbaliRef.orderBy('createdAt','asc').onSnapshot(function(snapshot) {
     else toast('\uD83D\uDD04 '+records.length+' verbali caricati da Firestore', 'success');
   }
 }, function(err) {
+  // Regole in sola scrittura: il registro non si legge ma i verbali si aggiungono
+  if (err.code === 'permission-denied') {
+    isLoading = false;
+    document.getElementById('syncStatus').innerHTML = '\uD83D\uDD12 Registro riservato \u2014 si possono solo aggiungere verbali';
+    document.getElementById('syncStatus').style.color = '#d29922';
+    return;
+  }
   document.getElementById('syncStatus').innerHTML = '\uD83D\uDD34 Offline';
   document.getElementById('syncStatus').style.color = '#f85149';
   toast('Errore Firestore: '+err.message, 'error');

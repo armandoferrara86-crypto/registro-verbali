@@ -75,9 +75,16 @@ Se cambia l'indirizzo: `firebase functions:secrets:set ARCHIVIO_URL`, poi
 
 ## Regole Firestore
 
-`firestore.rules` consente lettura e scrittura solo su `elenco_verbali` e nega
-tutto il resto. Non c'è login: chi conosce l'indirizzo può leggere e modificare
-il registro.
+`firestore.rules` mette il registro in **sola scrittura**: dalla pagina si possono
+solo aggiungere verbali (anche con l'import CSV in modalità "aggiungi"), con i soli
+campi del registro, testi di lunghezza limitata e data AAAA-MM-GG. Lettura,
+modifica e cancellazione sono chiuse a tutti; tutto il resto è negato.
+
+Non c'è ancora login, quindi le regole non distinguono un collega da un estraneo:
+per questo il registro non si legge dalla pagina. Si consulta dalla console Firebase
+(Firestore Database → `elenco_verbali`), che non passa dalle regole.
+Quando ci sarà il login con Google le regole torneranno ad aprire lettura e modifica
+solo agli account autorizzati.
 
 ## Se pubblichi la pagina altrove (GitHub Pages, Netlify…)
 
